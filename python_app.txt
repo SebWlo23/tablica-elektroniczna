@@ -1,0 +1,218 @@
+import time
+import tkinter
+import tkinter as tk
+from io import BytesIO
+from tkinter import *
+import requests
+import base64
+
+#import RPi.GPIO as GPIO
+
+
+from PIL import Image, ImageTk
+from gpiozero import Button, OutputDevice
+
+
+class App:
+    callback_delay = 5000
+    def __init__(self):
+
+        self.root = tk.Tk()
+        self.root.title("Plate")
+        #self.root.configure(bg='sky blue')
+        self.root.geometry(f"{800}x{480}")
+
+        self.tlo_image = Image.open("tło.jpg")
+        self.tlo_image = self.tlo_image.resize((800, 480))
+        self.tlo_photo = ImageTk.PhotoImage(self.tlo_image)
+        self.bck = tkinter.Label(self.root, image= self.tlo_photo)
+        self.bck.place(relheight=1, relwidth=1)
+
+        #self.dev_soft = Device_software()
+
+        self.device_id = 1
+        self.left_classroom = Classroom(self.root, "left")
+        self.right_classroom = Classroom(self.root, "right")
+        self.root.grid()
+        self.new_size = (200, 200)
+
+
+        self.root.columnconfigure(0, weight=1)
+        self.root.columnconfigure(1, weight=1)
+        self.root.rowconfigure(0, weight=3)
+        self.root.rowconfigure(1, weight=1)
+        self.root.rowconfigure(2, weight=1)
+        self.root.rowconfigure(3, weight=1)
+        self.root.rowconfigure(4, weight=1)
+        self.root.rowconfigure(5, weight=1)
+
+        self.callback_gui()
+        self.callback()
+
+        self.root.update()
+
+        self.root.mainloop()
+
+    def fetch_info(self):
+        user1 = fetch_from_backend("/user/" + str((2*self.device_id)-1))
+        user2 = fetch_from_backend("/user/" + str(2*self.device_id))
+        user_photo_1 = fetch_image_from_backend("/user/get_file/" + user1["photo"])
+        user_photo_2 = fetch_image_from_backend("/user/get_file/" + user2["photo"])
+        user_photo_1 = ImageTk.PhotoImage(user_photo_1.resize(self.new_size))
+        user_photo_2 = ImageTk.PhotoImage(user_photo_2.resize(self.new_size))
+        device = fetch_from_backend("/device/" + str(self.device_id))
+        time.sleep(1)
+        return user1, user2, user_photo_1, user_photo_2, device
+
+    def fetch_and_update_ui(self):
+
+        user1, user2, user_photo_1, user_photo_2, device = self.fetch_info()
+        self.callback_delay = device["refresch"] * 1000
+        print(self.callback_delay)
+        if user1["side"] == "left_side" and user2["side"] == "left_side":
+            user2["side"] = "right_side"
+
+        if user1["side"] == "right_side" and user2["side"] == "right_side":
+            user2["side"] = "left_side"
+
+        if user1["side"] == "left_side":
+            self.left_classroom.update_data(user1, user_photo_1)
+
+        if user1["side"] == "right_side":
+            self.right_classroom.update_data(user1, user_photo_1)
+
+        if user2["side"] == "left_side":
+            self.left_classroom.update_data(user2, user_photo_2)
+
+        if user2["side"] == "right_side":
+            self.right_classroom.update_data(user2, user_photo_2)
+
+
+    def callback(self):
+        try:
+            self.fetch_and_update_ui()
+            print("fetch_and_update_ui")
+            self.root.update()
+
+
+        except Exception as e:
+            print("Error: ", e)
+        self.root.after(self.callback_delay, self.callback)
+
+
+    def callback_gui(self):
+        #GPIO.setwarnings(False)
+        #GPIO.setmode(GPIO.BOARD)
+        #GPIO.setup(16, GPIO.OUT)
+        #GPIO.setup(18, GPIO.OUT)
+        #servo1 = GPIO.PWM(16, 50)
+       # servo2 = GPIO.PWM(18, 50)
+        try:
+            if self.left_classroom.button_state:
+                #servo1.start(7.5)
+                #time.sleep(2)
+                #servo1.stop()
+                self.left_classroom.button_state = False
+                print("przycisk_dziala")
+
+
+            if self.right_classroom.button_state:
+               #servo2.start(7.5)
+                #time.sleep(2)
+                #servo2.stop()
+                self.right_classroom.button_state = False
+                print("przycisk_dziala")
+
+
+        except Exception as e:
+            print("Error: ", e)
+        self.root.after(1000, self.callback_gui)
+
+
+
+class Classroom:
+    def __init__(self, root: tk.Widget, side : str):
+
+        self.root = root
+        self.label1 = tk.Label(self.root, text="loading", font=('Arial', 26), bg='dodgerblue4')
+        self.label2 = tk.Label(self.root, text="loading", font=('Arial', 26), bg='dodgerblue4')
+        self.label3 = tk.Label(self.root, text="loading", font=('Arial', 16), bg='dodgerblue4')
+        self.label4 = tk.Label(self.root, text="loading", font=('Arial', 16), bg='dodgerblue4')
+        self.image_label = tk.Label(self.root, image=None)
+        self.button = tk.Button(self.root, text="Wydaj wizytówkę", font=('Arial', 20, 'bold'), bg='lightgreen', command=self.button_pressed)
+        self.button_state = False
+
+        if side=="left":
+            self.label1.grid(row=1, column=0, sticky='nw')
+            self.label2.grid(row=2, column=0, sticky='nw')
+            self.label3.grid(row=3, column=0, sticky='nw')
+            self.label4.grid(row=4, column=0, sticky='nw')
+            self.image_label.grid(row=0, column=0, sticky='nw')
+            self.button.grid(row=5, column=0, sticky='nesw')
+        else:
+            self.label1.grid(row=1, column=1, sticky='ne')
+            self.label2.grid(row=2, column=1, sticky='ne')
+            self.label3.grid(row=3, column=1, sticky='ne')
+            self.label4.grid(row=4, column=1, sticky='ne')
+            self.image_label.grid(row=0, column=1, sticky='ne')
+            self.button.grid(row=5, column=1, sticky='nesw')
+
+
+    def update_data(self, data: dict, image: ImageTk.PhotoImage):
+        self.label1.configure(text=data["name"])
+        self.label2.configure(text=data["availability"])
+        self.label3.configure(text=data["email"])
+        self.label4.configure(text=data["information"])
+        self.image_label.configure(image=image)
+        self.image_label.image = image
+
+    def button_pressed(self):
+        self.button_state = True
+
+#class Device_software:
+  #  def __init__(self):
+ #       self
+
+
+
+
+
+
+
+
+def fetch_from_backend(url : str):
+    full_url = "http://sebwlo23.pythonanywhere.com" + url
+    response = requests.get(full_url)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def fetch_image_from_backend(url : str):
+    full_url = "http://sebwlo23.pythonanywhere.com" + url
+    response = requests.get(full_url)
+    response.raise_for_status()
+
+    data = response.json()
+    img = base64.b64decode(data["file"])
+    img = BytesIO(img)
+
+    return Image.open(img)
+
+"""def get_sensor_info(pin_number):
+    sensor = Button(pin_number)
+
+    return sensor.when_activated
+
+def set_pin(pin_number):
+    output = OutputDevice(pin_number)
+    output.on()
+
+def reset_pin(pin_number):
+    output = OutputDevice(pin_number)
+    output.off()"""
+
+
+app = App()
+
+

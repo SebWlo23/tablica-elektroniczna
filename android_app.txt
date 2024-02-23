@@ -1,0 +1,621 @@
+package com.example.tablica;
+
+import android.content.Intent;
+import android.os.Bundle;
+
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
+
+
+import static android.content.ContentValues.TAG;
+
+import android.annotation.SuppressLint;
+import android.os.Handler;
+import android.provider.MediaStore;
+import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.Toast;
+
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.Volley;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+    EditText mail_txt;
+    EditText dev_adress;
+    Button MAIL;
+    Button ADRES;
+    RequestQueue requestQuene;
+    int last_user_id;
+    int current_user_id;
+    String current_mail, device_id;
+    public boolean user_exist, device_exist, user_ex;
+    public boolean user_one_exist;
+    public boolean user_two_exist;
+    int delayMillis = 2000;
+    Handler handler = new Handler();
+    int tmp =0;
+    int tmp2;
+
+    String if_user_exist, if_device_exist, user_one_mail, user_two_mail, user_one_id, user_two_id;
+
+
+    String last_user_url = "https://sebwlo23.pythonanywhere.com/users/last";
+    String get_user_by_id = "https://sebwlo23.pythonanywhere.com/user/email/";
+    String check_adress = "https://sebwlo23.pythonanywhere.com/device/adress/";
+    String check_user_mail = "https://sebwlo23.pythonanywhere.com/user/";
+
+    @SuppressLint("MissingInflatedId")
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        mail_txt = findViewById(R.id.mail);
+        dev_adress = findViewById(R.id.device_adress);
+        MAIL = findViewById(R.id.check_mail);
+        MAIL.setOnClickListener(this);
+        ADRES = findViewById(R.id.check_device);
+        ADRES.setOnClickListener(this);
+        get_last_id();
+    }
+
+    public void openActivity2() {
+        Intent intent = new Intent(MainActivity.this, send_plate.class);
+        intent.putExtra("if_exist", if_user_exist);
+        intent.putExtra("user_mail", current_mail);
+        intent.putExtra("user_id", String.valueOf(current_user_id));
+        intent.putExtra("device_id", device_id);
+        startActivity(intent);
+    }
+
+    public void get_last_id() {
+        JsonObjectRequest req1 = new JsonObjectRequest(Request.Method.GET, last_user_url, null,
+                response -> {
+                    try {
+                        last_user_id = response.getInt("id");
+                        Log.d(TAG, "Last_User_ID: " + last_user_id);
+
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                },
+                error -> Log.e(TAG, "Error " + error.getMessage()));
+        requestQuene = Volley.newRequestQueue(MainActivity.this);
+        requestQuene.add(req1);
+
+    }
+
+public void check_free_places(){
+    JsonObjectRequest req1 = new JsonObjectRequest(Request.Method.GET, check_user_mail + String.valueOf((Integer.parseInt(device_id)*2)-1), null,
+            response -> {
+                try {
+                    user_one_mail = response.getString("email");
+                    user_one_id = response.getString("id");
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+                Log.e(TAG, "Pierwszy mail:" + user_one_mail);
+                if (user_one_mail.equals("free_place")){
+                    user_one_exist = false;
+                    tmp =1;
+                    Log.e(TAG, "ustawilo pierwszy false");
+                }
+                else {
+                    user_one_exist = true;
+                }
+            },
+            error -> Log.e(TAG, "Error " + error.getMessage()));
+    requestQuene = Volley.newRequestQueue(MainActivity.this);
+    requestQuene.add(req1);
+
+    JsonObjectRequest req2 = new JsonObjectRequest(Request.Method.GET, check_user_mail + String.valueOf(Integer.parseInt(device_id)*2), null,
+            response -> {
+                try {
+                    user_two_mail = response.getString("email");
+                    user_two_id = response.getString("id");
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                Log.e(TAG, "Drugi mail:" + user_two_mail);
+                if (user_two_mail.equals("free_place")){
+                    tmp=2;
+                    user_two_exist = false;
+
+                }
+                else {
+                    user_two_exist = true;
+                }
+            },
+            error -> Log.e(TAG, "Error " + error.getMessage()));
+    requestQuene = Volley.newRequestQueue(MainActivity.this);
+    requestQuene.add(req2);
+}
+
+
+    @Override
+    public void onClick(View view) {
+        if (view.getId() == R.id.check_device){
+            JsonObjectRequest req2 = new JsonObjectRequest(Request.Method.GET, check_adress + dev_adress.getText().toString(), null,
+                    response -> {
+                        try {
+                            device_id = response.getString("id");
+                            Log.d(TAG, "dev_id: " + device_id);
+
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                        device_exist = true;
+                        if_device_exist = String.valueOf(device_exist);
+                        Toast.makeText(MainActivity.this, "Successfully connected to the Device!", Toast.LENGTH_LONG).show();
+                    },
+                    error -> {
+                        device_exist = false;
+                        if_device_exist = String.valueOf(false);
+                        Toast.makeText(MainActivity.this, "Device does not exist", Toast.LENGTH_LONG).show();
+                    });
+
+            requestQuene = Volley.newRequestQueue(MainActivity.this);
+            requestQuene.add(req2);
+
+        }
+
+        if (view.getId() == R.id.check_mail) {
+
+            if (device_exist){
+                check_free_places();
+                if (mail_txt.getText().toString().equals(user_one_mail)){
+                    user_exist = true;
+                    if_user_exist = String.valueOf(user_exist);
+                    current_user_id = Integer.parseInt(user_one_id);
+                    openActivity2();
+                }
+                else if (mail_txt.getText().toString().equals(user_two_mail)){
+                    user_exist = true;
+                    if_user_exist = String.valueOf(user_exist);
+                    current_user_id = Integer.parseInt(user_two_id);
+                    openActivity2();
+                }
+                else {
+                    if (user_one_exist == false && tmp ==1){
+                        user_exist = false;
+                        current_mail = mail_txt.getText().toString();
+                        if_user_exist = String.valueOf(false);
+                        current_user_id = (Integer.parseInt(device_id)*2)-1;
+                        Log.d(TAG, "wybralo_pierwszy ");
+                        openActivity2();
+                    } else if (user_two_exist == false && tmp==2) {
+                        user_exist = false;
+                        current_mail = mail_txt.getText().toString();
+                        if_user_exist = String.valueOf(false);
+                        current_user_id = (Integer.parseInt(device_id)*2);
+                        Log.d(TAG, "wybralo_drugi ");
+                        openActivity2();
+
+                    } else if (user_one_exist == true && user_two_exist == true){
+                        Toast.makeText(MainActivity.this, "This device has the maximum number of users!", Toast.LENGTH_LONG).show();
+                    }
+                }
+            }
+            else {
+                Toast.makeText(MainActivity.this, "Connect to the Device first!!", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+
+}
+
+
+/*if (view.getId() == R.id.check_mail) {
+
+            if (device_exist){
+                check_free_places();
+
+                if (mail_txt.getText().toString().equals(user_one_mail) && mail_txt.getText().toString().equals(user_two_mail)){
+
+                }
+                JsonObjectRequest req3 = new JsonObjectRequest(Request.Method.GET, get_user_by_id + mail_txt.getText().toString(), null,
+                        response -> {
+                            try {
+                                current_mail = response.getString("email");
+                                current_user_id = response.getInt("id");
+                                Log.d(TAG, "current mail: " + current_mail);
+
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+                            user_exist = true;
+                            if_user_exist = String.valueOf(user_exist);
+                            openActivity2();
+                        },
+                        error -> {
+                            user_exist = false;
+                            current_mail = mail_txt.getText().toString();
+                            if_user_exist = String.valueOf(false);
+                            openActivity2();
+                        });
+
+                requestQuene = Volley.newRequestQueue(MainActivity.this);
+                requestQuene.add(req3);
+            }
+            else {
+                Toast.makeText(MainActivity.this, "Connect to the Device first!!", Toast.LENGTH_LONG).show();
+            }
+        }*/
+
+
+
+
+
+
+################################
+
+
+package com.example.tablica;
+
+import static android.content.ContentValues.TAG;
+
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.net.Uri;
+import android.os.Bundle;
+
+
+import android.annotation.SuppressLint;
+import android.provider.MediaStore;
+import android.util.Base64;
+import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.Toast;
+
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.Volley;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+
+public class send_plate extends AppCompatActivity implements View.OnClickListener {
+
+    @SuppressLint("MissingInflatedId")
+    Button go_back;
+    Button send;
+    Button con;
+    Button del_user;
+    ImageView imageView;
+    EditText name;
+    EditText availability;
+    EditText information;
+    EditText email;
+    RequestQueue requestQ;
+    RadioButton radioButton;
+    RadioGroup radioGroup;
+    String get_user_by_id = "https://sebwlo23.pythonanywhere.com/user/";
+    String post_new_user = "https://sebwlo23.pythonanywhere.com/users";
+    String put_user_data = "https://sebwlo23.pythonanywhere.com/user/put/";
+    String change_mail = "https://sebwlo23.pythonanywhere.com/user/put_email/";
+    String availability_exist, photo_name, information_exist, side_exist, photo_exist, name_exist, mail_exist, id_exist, if_exist, device_id;
+    boolean pub_user_exist;
+    Bitmap bitmap;
+    String base64Image;
+    String filename;
+    String side_txt;
+
+
+    @SuppressLint("MissingInflatedId")
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_send_plate);
+        go_back = findViewById(R.id.go_back);
+        send = findViewById(R.id.send);
+        con = findViewById(R.id.button2);
+        go_back.setOnClickListener(this);
+        send.setOnClickListener(this);
+        con.setOnClickListener(this);
+        del_user = findViewById(R.id.del_user);
+        del_user.setOnClickListener(this);
+        radioGroup = findViewById(R.id.side);
+
+
+
+
+        name = findViewById(R.id.name);
+        availability = findViewById(R.id.availability);
+        information = findViewById(R.id.information);
+        email = findViewById(R.id.email);
+        if_exist = getIntent().getStringExtra("if_exist");
+        id_exist = getIntent().getStringExtra("user_id");
+        mail_exist = getIntent().getStringExtra("user_mail");
+        device_id = getIntent().getStringExtra("device_id");
+        pub_user_exist = Boolean.parseBoolean(if_exist);
+        imageView = findViewById(R.id.imageView);
+        imageView.setOnClickListener(this);
+
+
+
+        if(Boolean.parseBoolean(if_exist)){
+            JsonObjectRequest req1 = new JsonObjectRequest(Request.Method.GET, get_user_by_id + id_exist, null,
+                    response -> {
+                        try {
+                            availability_exist = response.getString("availability");
+                            information_exist = response.getString("information");
+                            side_exist = response.getString("side");
+                            photo_exist = response.getString("photo");
+                            name_exist = response.getString("name");
+                            mail_exist = response.getString("email");
+                            photo_name = response.getString("photo_name");
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                        name.setText(name_exist);
+                        information.setText(information_exist);
+                        email.setText(mail_exist);
+                        availability.setText(availability_exist);
+
+                    },
+                    error -> Log.e(TAG, "Error " + error.getMessage()));
+            requestQ = Volley.newRequestQueue(send_plate.this);
+            requestQ.add(req1);
+        }
+        else {
+            email.setText(mail_exist);
+        }
+
+    }
+
+    public void checkButton(View view){
+        int radioId = radioGroup.getCheckedRadioButtonId();
+        radioButton = findViewById(radioId);
+        side_txt = radioButton.getText().toString();
+        Toast.makeText(this, "text: " + radioButton.getText(), Toast.LENGTH_LONG).show();
+    }
+    public void openActivity3() {
+        Intent intent2 = new Intent(send_plate.this, Device_config.class);
+        intent2.putExtra("user_id", id_exist);
+        intent2.putExtra("device_id", device_id);
+        startActivity(intent2);
+    }
+
+
+    ActivityResultLauncher<Intent> activityResultLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), new ActivityResultCallback<ActivityResult>() {
+                @Override
+                public void onActivityResult(ActivityResult result) {
+                    if (result.getResultCode() == Activity.RESULT_OK){
+                        Intent data = result.getData();
+                        assert data != null;
+                        Uri uri = data.getData();
+                        filename = new File(uri.getPath()).getName();
+                        try {
+                            bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
+                            imageView.setImageBitmap(bitmap);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                }
+            });
+
+    void prepare_photo(){
+        ByteArrayOutputStream byteArrayOutputStream;
+        byteArrayOutputStream = new ByteArrayOutputStream();
+        if(bitmap != null){
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream);
+            byte[] bytes = byteArrayOutputStream.toByteArray();
+            base64Image = Base64.encodeToString(bytes, Base64.DEFAULT);
+
+        }
+    }
+    private JSONObject put_user_data() {
+        prepare_photo();
+        JSONObject data = new JSONObject();
+        try {
+            data.put("name", name.getText().toString());
+            data.put("availability", availability.getText().toString());
+            data.put("information", information.getText().toString());
+            data.put("side", side_txt);
+            data.put("email", email.getText().toString());
+            data.put("photo", base64Image);
+            data.put("photo_name", filename + ".jpg");
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+        return data;
+    }
+
+    private JSONObject post_user_data() {
+        prepare_photo();
+        JSONObject data = new JSONObject();
+        try {
+            data.put("name", name.getText().toString());
+            data.put("availability", availability.getText().toString());
+            data.put("information", information.getText().toString());
+            data.put("side", side_txt);
+            data.put("email", email.getText().toString());
+            data.put("photo", base64Image);
+            data.put("photo_name", filename + ".jpg");
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+        return data;
+    }
+
+    private JSONObject del_user() {
+        JSONObject data = new JSONObject();
+        try {
+            data.put("email", "free_place");
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+        return data;
+    }
+
+    public void  onClick(View view){
+        if (view.getId() == R.id.go_back){
+            finish();
+        }
+        if (view.getId() == R.id.button2){
+            openActivity3();
+        }
+        if (view.getId() == R.id.del_user){
+            JsonObjectRequest request8 = new JsonObjectRequest(
+                    Request.Method.PUT,
+                    change_mail + id_exist,
+                    del_user(),
+                    response -> Toast.makeText(send_plate.this, "User deleted successfully!", Toast.LENGTH_LONG).show(),
+                    error -> Toast.makeText(send_plate.this, "Error!", Toast.LENGTH_LONG).show());
+
+            requestQ = Volley.newRequestQueue(send_plate.this);
+            requestQ.add(request8);
+        }
+
+        if(view.getId() == R.id.imageView){
+            Intent selector = new Intent(Intent.ACTION_PICK);
+            selector.setData(MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            activityResultLauncher.launch(selector);
+        }
+
+        if (view.getId() == R.id.send){
+            if_exist = getIntent().getStringExtra("if_exist");
+            id_exist = getIntent().getStringExtra("user_id");
+            mail_exist = getIntent().getStringExtra("user_mail");
+            pub_user_exist = Boolean.parseBoolean(if_exist);
+            if(pub_user_exist){
+                JsonObjectRequest request1 = new JsonObjectRequest(
+                        Request.Method.PUT,
+                        put_user_data + id_exist,
+                        put_user_data(),
+                        response -> Toast.makeText(send_plate.this, "Succes", Toast.LENGTH_LONG).show(),
+                        error -> Toast.makeText(send_plate.this, "Insert all data!", Toast.LENGTH_LONG).show());
+
+                requestQ = Volley.newRequestQueue(send_plate.this);
+                requestQ.add(request1);
+            }
+            else{
+                JsonObjectRequest request2 = new JsonObjectRequest(
+                        Request.Method.PUT,
+                        put_user_data + id_exist,
+                        put_user_data(),
+                        response -> Toast.makeText(send_plate.this, "Succes", Toast.LENGTH_LONG).show(),
+                        error -> Toast.makeText(send_plate.this, "Insert all data!", Toast.LENGTH_LONG).show());
+
+                requestQ = Volley.newRequestQueue(send_plate.this);
+                requestQ.add(request2);
+           }
+
+        }
+    }
+
+}
+
+
+
+###########################
+
+
+package com.example.tablica;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Toast;
+
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.Volley;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+
+public class Device_config extends AppCompatActivity implements View.OnClickListener {
+
+    Button prev;
+    Button send;
+    int current_device_id;
+    String id_exist, device_id;
+    EditText ref_time;
+    RequestQueue requestQ;
+    String change_refresch = "https://sebwlo23.pythonanywhere.com/device/put/";
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_device_config);
+        prev = findViewById(R.id.prev);
+        prev.setOnClickListener(this);
+        send = findViewById(R.id.change_refresch);
+        send.setOnClickListener(this);
+        ref_time = findViewById(R.id.refresch_time);
+        id_exist = getIntent().getStringExtra("user_id");
+        device_id = getIntent().getStringExtra("device_id");
+    }
+
+    private JSONObject put_dev() {
+        JSONObject data = new JSONObject();
+        try {
+            data.put("refresch", Integer.parseInt(ref_time.getText().toString()));
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+        return data;
+    }
+
+    public void onClick(View v) {
+        if (v.getId() == R.id.prev){
+            finish();
+        }
+        if (v.getId() == R.id.change_refresch){
+            JsonObjectRequest request1 = new JsonObjectRequest(
+                    Request.Method.PUT,
+                    change_refresch + device_id,
+                    put_dev(),
+                    response -> Toast.makeText(Device_config.this, "Refresch time changed successfully!", Toast.LENGTH_LONG).show(),
+                    error -> Toast.makeText(Device_config.this, "Error!", Toast.LENGTH_LONG).show());
+
+            requestQ = Volley.newRequestQueue(Device_config.this);
+            requestQ.add(request1);
+
+        }
+
+    }
+}
