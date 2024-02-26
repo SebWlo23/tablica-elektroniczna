@@ -11,3 +11,5 @@
 # Projects of the device
 ![obud](https://github.com/SebWlo23/Barman/assets/127935454/6e357d20-dea0-49bb-8f30-54d5cd998a40)
 
+# The device
+![got](https://github.com/SebWlo23/tablica-elektroniczna/assets/127935454/5ac1fe05-e971-4ed1-bd37-7f9570d93676)
